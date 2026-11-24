@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oracle Database Failover Test Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <h1>Failover Test Application</h1>
+          <p class="subtitle">Real-time Oracle Primary / Secondary Routing Monitor</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <!-- Live Badge -->
+        <div id="db-badge" class="badge badge-checking">
+          <span class="badge-dot"></span>
+          <span id="db-badge-text">Reads served by: CHECKING...</span>
+        </div>
+        <div class="refresh-indicator">
+          <span>Auto-refresh: <strong id="refresh-counter">5s</strong></span>
+          <button id="btn-manual-refresh" class="btn btn-secondary btn-sm" title="Refresh data immediately">↻ Refresh</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Error Banner -->
+    <div id="error-banner" class="error-banner hidden">
+      <div class="error-icon">⚠️</div>
+      <div class="error-content">
+        <strong id="error-title">Database Error</strong>
+        <p id="error-message">Unable to reach the database.</p>
+        <div class="error-code-badge" id="error-code">ORA-UNKNOWN</div>
+      </div>
+      <button class="error-close" id="btn-close-error">&times;</button>
+    </div>
+
+    <!-- Success Banner -->
+    <div id="success-banner" class="success-banner hidden">
+      <div class="success-icon">✓</div>
+      <div class="success-content">
+        <strong id="success-title">Action Succeeded</strong>
+        <p id="success-message">Operation completed successfully.</p>
+      </div>
+      <button class="success-close" id="btn-close-success">&times;</button>
+    </div>
+
+    <!-- Action Toolbar -->
+    <section class="toolbar">
+      <div class="toolbar-title">Actions (Primary DB Writes):</div>
+      <div class="toolbar-actions">
+        <button id="btn-open-add-user" class="btn btn-primary">➕ Add User</button>
+        <button id="btn-open-claim-order" class="btn btn-warning">🔒 Claim Order</button>
+        <button id="btn-next-user-id" class="btn btn-info">🔢 Next User ID (Trap)</button>
+        <button id="btn-open-audit-log" class="btn btn-secondary">📝 Add Audit Log</button>
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="users">Users</button>
+      <button class="tab-btn" data-tab="orders">Orders</button>
+      <button class="tab-btn" data-tab="products">Products</button>
+      <button class="tab-btn" data-tab="stats">Stats</button>
+    </nav>
+
+    <!-- Tab Contents -->
+    <main class="tab-content">
+      <!-- Users Tab -->
+      <section id="tab-users" class="tab-pane active">
+        <div class="panel-header">
+          <h2>Users Directory (Plain Reads)</h2>
+          <span class="record-count" id="users-count">Loading...</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">ID</th>
+                <th>Name</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody id="users-table-body">
+              <tr><td colspan="3" class="loading-cell">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Orders Tab -->
+      <section id="tab-orders" class="tab-pane">
+        <div class="panel-header">
+          <h2>Orders (Joined with Users)</h2>
+          <span class="record-count" id="orders-count">Loading...</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Order ID</th>
+                <th>Customer</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th style="text-align: right;">Total</th>
+                <th style="width: 140px; text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="orders-table-body">
+              <tr><td colspan="6" class="loading-cell">Loading orders...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Products Tab -->
+      <section id="tab-products" class="tab-pane">
+        <div class="panel-header">
+          <h2>Products Catalog</h2>
+          <div class="filter-group">
+            <label for="filter-min-price">Min Price ($):</label>
+            <input type="number" id="filter-min-price" placeholder="e.g. 50" step="10" min="0">
+            <button id="btn-filter-products" class="btn btn-secondary btn-sm">Filter</button>
+            <button id="btn-reset-products" class="btn btn-text btn-sm">Reset</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 80px;">ID</th>
+                <th>Product Name</th>
+                <th style="text-align: right;">Price</th>
+              </tr>
+            </thead>
+            <tbody id="products-table-body">
+              <tr><td colspan="3" class="loading-cell">Loading products...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Stats Tab -->
+      <section id="tab-stats" class="tab-pane">
+        <div class="panel-header">
+          <h2>Database Summary Statistics</h2>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+              <span class="stat-label">Total Users</span>
+              <span class="stat-value" id="stat-users">-</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📦</div>
+            <div class="stat-info">
+              <span class="stat-label">Total Orders</span>
+              <span class="stat-value" id="stat-orders">-</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">🏷️</div>
+            <div class="stat-info">
+              <span class="stat-label">Total Products</span>
+              <span class="stat-value" id="stat-products">-</span>
+            </div>
+          </div>
+          <div class="stat-card highlight">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+              <span class="stat-label">Total Revenue</span>
+              <span class="stat-value" id="stat-revenue">-</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-info">
+              <span class="stat-label">Avg Order Value</span>
+              <span class="stat-value" id="stat-avg-order">-</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Modals -->
+    <!-- Add User Modal -->
+    <div id="modal-add-user" class="modal-backdrop hidden">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Add New User</h3>
+          <button class="modal-close" data-modal="modal-add-user">&times;</button>
+        </div>
+        <form id="form-add-user">
+          <div class="modal-body">
+            <p class="modal-hint">Writes directly to the primary database using <code>users_seq.NEXTVAL</code>.</p>
+            <div class="form-group">
+              <label for="user-name">Full Name</label>
+              <input type="text" id="user-name" required placeholder="e.g. Eleanor Vance">
+            </div>
+            <div class="form-group">
+              <label for="user-email">Email Address</label>
+              <input type="email" id="user-email" required placeholder="e.g. eleanor.vance@example.com">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary modal-close" data-modal="modal-add-user">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-user">Save User</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Claim Order Modal -->
+    <div id="modal-claim-order" class="modal-backdrop hidden">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Claim Order (Trap Write)</h3>
+          <button class="modal-close" data-modal="modal-claim-order">&times;</button>
+        </div>
+        <form id="form-claim-order">
+          <div class="modal-body">
+            <p class="modal-hint">Uses <code>SELECT ... FOR UPDATE</code> followed by <code>UPDATE</code> on writePool.</p>
+            <div class="form-group">
+              <label for="claim-order-id">Order ID</label>
+              <input type="number" id="claim-order-id" required placeholder="e.g. 1" min="1">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary modal-close" data-modal="modal-claim-order">Cancel</button>
+            <button type="submit" class="btn btn-warning" id="btn-submit-claim">Claim Order</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Audit Log Modal -->
+    <div id="modal-audit-log" class="modal-backdrop hidden">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3>Execute Stored Procedure: add_audit_log</h3>
+          <button class="modal-close" data-modal="modal-audit-log">&times;</button>
+        </div>
+        <form id="form-audit-log">
+          <div class="modal-body">
+            <p class="modal-hint">Calls Oracle stored procedure <code>add_audit_log(p_message)</code> on writePool.</p>
+            <div class="form-group">
+              <label for="audit-message">Log Message</label>
+              <input type="text" id="audit-message" required placeholder="e.g. Manual security audit check">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary modal-close" data-modal="modal-audit-log">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-audit">Execute Procedure</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Result Alert Modal -->
+    <div id="modal-result" class="modal-backdrop hidden">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h3 id="result-modal-title">Result</h3>
+          <button class="modal-close" data-modal="modal-result">&times;</button>
+        </div>
+        <div class="modal-body">
+          <pre id="result-modal-content" class="code-box"></pre>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary modal-close" data-modal="modal-result">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>Backend API target: <code>backend:3000</code> | Nginx proxy: <code>:8080</code></div>
+      <div>Oracle Failover Agent Test Suite</div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

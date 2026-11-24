@@ -1,0 +1,27 @@
+{
+  "name": "failover-test-backend",
+  "version": "1.0.0",
+  "description": "Backend service for automated database-failover agent testing",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "test": "jest --runInBand",
+    "test:reads": "jest tests/failover.test.js --runInBand",
+    "test:smoke": "jest tests/health.test.js tests/debug.test.js --runInBand"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "oracledb": "^6.6.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testTimeout": 15000,
+    "verbose": true
+  }
+}

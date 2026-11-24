@@ -1,0 +1,85 @@
+services:
+  oracle-primary:
+    image: gvenzl/oracle-free:slim-faststart
+    container_name: oracle-primary
+    ports:
+      - "1521:1521"
+    mem_limit: 2g
+    environment:
+      - ORACLE_PASSWORD=${ORACLE_PASSWORD}
+      - APP_USER=${APP_USER:-APPUSER}
+      - APP_USER_PASSWORD=${APP_USER_PASSWORD}
+    volumes:
+      - ./db/common/01_schema.sql:/container-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/common/02_seed.sql:/container-entrypoint-initdb.d/02_seed.sql:ro
+      - ./db/primary/03_identity.sql:/container-entrypoint-initdb.d/03_identity.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 25
+      start_period: 35s
+    networks:
+      - failover-net
+
+  oracle-secondary:
+    image: gvenzl/oracle-free:slim-faststart
+    container_name: oracle-secondary
+    ports:
+      - "1522:1521"
+    mem_limit: 2g
+    environment:
+      - ORACLE_PASSWORD=${ORACLE_PASSWORD}
+      - APP_USER=${APP_USER:-APPUSER}
+      - APP_USER_PASSWORD=${APP_USER_PASSWORD}
+    volumes:
+      - ./db/common/01_schema.sql:/container-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/common/02_seed.sql:/container-entrypoint-initdb.d/02_seed.sql:ro
+      - ./db/secondary/03_identity.sql:/container-entrypoint-initdb.d/03_identity.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 25
+      start_period: 35s
+    networks:
+      - failover-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: failover-backend
+    ports:
+      - "3000:3000"
+    mem_limit: 512m
+    environment:
+      - PORT=3000
+      - APP_USER=${APP_USER:-APPUSER}
+      - APP_USER_PASSWORD=${APP_USER_PASSWORD}
+      - EXPECTED_READ_DB=${EXPECTED_READ_DB:-PRIMARY}
+    depends_on:
+      oracle-primary:
+        condition: service_healthy
+        required: false
+      oracle-secondary:
+        condition: service_healthy
+        required: false
+    networks:
+      - failover-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: failover-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - failover-net
+
+networks:
+  failover-net:
+    name: failover-net

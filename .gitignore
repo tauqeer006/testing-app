@@ -1,0 +1,14 @@
+# Node dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+
+# Testing and coverage
+coverage/
+*.log
+
+# OS metadata
+.DS_Store
+Thumbs.db

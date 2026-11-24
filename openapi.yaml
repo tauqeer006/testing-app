@@ -1,0 +1,483 @@
+openapi: 3.0.3
+info:
+  title: Oracle Failover Test Application API
+  description: Backend API designed for automated database-failover agent testing. Each endpoint is tagged with `x-db-access` to declare its database routing contract.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3000
+    description: Direct backend service
+  - url: http://localhost:8080
+    description: Nginx reverse proxy
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns service availability. Does not touch either database.
+      x-db-access: none
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /debug/db:
+    get:
+      summary: Database diagnostic health and identity probe
+      description: Tests both read and write pools independently and reports active database identity or ORA error details.
+      x-db-access: read
+      responses:
+        "200":
+          description: Diagnostic information for read and write database pools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  read:
+                    type: object
+                    properties:
+                      identity:
+                        type: string
+                        example: PRIMARY
+                      error:
+                        type: string
+                      code:
+                        type: string
+                        example: ORA-12170
+                  write:
+                    type: object
+                    properties:
+                      identity:
+                        type: string
+                        example: PRIMARY
+                      error:
+                        type: string
+                      code:
+                        type: string
+                        example: ORA-12541
+
+  /api/users:
+    get:
+      summary: List all users
+      description: Retrieves all users ordered by ID. Plain SELECT on the read pool.
+      x-db-access: read
+      responses:
+        "200":
+          description: Array of user records
+          headers:
+            X-DB-Served-By:
+              schema:
+                type: string
+                example: PRIMARY
+              description: Identity of the database that served this read request (PRIMARY or SECONDARY)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+    post:
+      summary: Create new user
+      description: Inserts a new user record using users_seq.NEXTVAL on the write pool.
+      x-db-access: write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                  example: Eleanor Vance
+                email:
+                  type: string
+                  format: email
+                  example: eleanor.vance@example.com
+      responses:
+        "201":
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/users/{id}:
+    get:
+      summary: Get user by ID
+      description: Retrieves a single user record by ID. Plain SELECT on the read pool.
+      x-db-access: read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: User record
+          headers:
+            X-DB-Served-By:
+              schema:
+                type: string
+                example: PRIMARY
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/next-user-id:
+    get:
+      summary: Get next user sequence ID (TRAP endpoint)
+      description: Retrieves users_seq.NEXTVAL from DUAL. Although accessed via HTTP GET, this mutates sequence state and MUST stay on the write pool.
+      x-db-access: write
+      responses:
+        "200":
+          description: Next sequence ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nextId:
+                    type: integer
+                    example: 101
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/orders:
+    get:
+      summary: List all orders
+      description: Retrieves all orders joined with user details. Plain SELECT on the read pool.
+      x-db-access: read
+      responses:
+        "200":
+          description: Array of order records with customer details
+          headers:
+            X-DB-Served-By:
+              schema:
+                type: string
+                example: PRIMARY
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/orders/{id}:
+    get:
+      summary: Get order by ID
+      description: Retrieves an order by ID joined with user details. Plain SELECT on the read pool.
+      x-db-access: read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: Order details
+          headers:
+            X-DB-Served-By:
+              schema:
+                type: string
+                example: PRIMARY
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Order not found
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/orders/{id}/status:
+    patch:
+      summary: Update order status
+      description: Updates the status of an existing order on the write pool.
+      x-db-access: write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  example: PROCESSING
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  status:
+                    type: string
+                  message:
+                    type: string
+        "404":
+          description: Order not found
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/orders/{id}/claim:
+    post:
+      summary: Claim an order (TRAP endpoint)
+      description: Uses SELECT FOR UPDATE followed by UPDATE on the write pool. Must stay on the write pool.
+      x-db-access: write
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 3
+      responses:
+        "200":
+          description: Order claimed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  status:
+                    type: string
+                    example: CLAIMED
+                  message:
+                    type: string
+        "404":
+          description: Order not found
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/products:
+    get:
+      summary: List products
+      description: Retrieves product catalog, optionally filtered by minimum price. Plain SELECT on read pool.
+      x-db-access: read
+      parameters:
+        - name: minPrice
+          in: query
+          required: false
+          schema:
+            type: number
+            format: float
+          example: 50.0
+      responses:
+        "200":
+          description: Array of products
+          headers:
+            X-DB-Served-By:
+              schema:
+                type: string
+                example: PRIMARY
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/stats/summary:
+    get:
+      summary: Get aggregate statistics
+      description: Retrieves total counts and revenue metrics. Plain SELECT on the read pool.
+      x-db-access: read
+      responses:
+        "200":
+          description: Summary statistical metrics
+          headers:
+            X-DB-Served-By:
+              schema:
+                type: string
+                example: PRIMARY
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsSummary"
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+  /api/audit:
+    post:
+      summary: Write audit log entry (TRAP endpoint)
+      description: Invokes the Oracle stored procedure add_audit_log on the write pool.
+      x-db-access: write
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  example: Failover readiness health check
+      responses:
+        "201":
+          description: Stored procedure executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  auditMessage:
+                    type: string
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "500":
+          $ref: "#/components/responses/DbErrorResponse"
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        ID:
+          type: integer
+          example: 1
+        NAME:
+          type: string
+          example: Alice Johnson
+        EMAIL:
+          type: string
+          example: alice.johnson@example.com
+
+    Order:
+      type: object
+      properties:
+        ID:
+          type: integer
+          example: 1
+        USER_ID:
+          type: integer
+          example: 1
+        USER_NAME:
+          type: string
+          example: Alice Johnson
+        USER_EMAIL:
+          type: string
+          example: alice.johnson@example.com
+        STATUS:
+          type: string
+          example: COMPLETED
+        TOTAL:
+          type: number
+          format: float
+          example: 179.49
+
+    Product:
+      type: object
+      properties:
+        ID:
+          type: integer
+          example: 1
+        NAME:
+          type: string
+          example: Ergonomic Mechanical Keyboard
+        PRICE:
+          type: number
+          format: float
+          example: 129.99
+
+    StatsSummary:
+      type: object
+      properties:
+        userCount:
+          type: integer
+          example: 12
+        orderCount:
+          type: integer
+          example: 25
+        productCount:
+          type: integer
+          example: 18
+        totalRevenue:
+          type: number
+          format: float
+          example: 3249.20
+        avgOrderValue:
+          type: number
+          format: float
+          example: 129.97
+
+    DbError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: ORA-12170: TNS:Connect timeout occurred
+        code:
+          type: string
+          example: ORA-12170
+
+  responses:
+    DbErrorResponse:
+      description: Database error occurred (status 500 with ORA error code)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DbError"
+
+    BadRequestResponse:
+      description: Invalid client input
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Invalid parameter provided
