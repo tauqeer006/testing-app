@@ -1,5 +1,5 @@
 const express = require("express");
-const { getReadConnection, getWriteConnection } = require("../db");
+const { getSecondaryReadConnection, getWriteConnection } = require("../db");
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ async function setServedByHeader(connection, res) {
 router.get("/orders", async (req, res) => {
   let connection;
   try {
-    connection = await getReadConnection();
+    connection = await getSecondaryReadConnection();
     const result = await connection.execute(
       `SELECT o.id, o.user_id, u.name AS user_name, u.email AS user_email, o.status, o.total 
        FROM orders o 
@@ -62,7 +62,7 @@ router.get("/orders/:id", async (req, res) => {
 
   let connection;
   try {
-    connection = await getReadConnection();
+    connection = await getSecondaryReadConnection();
     const result = await connection.execute(
       `SELECT o.id, o.user_id, u.name AS user_name, u.email AS user_email, o.status, o.total 
        FROM orders o 

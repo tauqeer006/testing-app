@@ -1,5 +1,5 @@
 const express = require("express");
-const { getReadConnection } = require("../db");
+const { getSecondaryReadConnection } = require("../db");
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ async function setServedByHeader(connection, res) {
 router.get("/products", async (req, res) => {
   let connection;
   try {
-    connection = await getReadConnection();
+    connection = await getSecondaryReadConnection();
     let result;
 
     if (req.query.minPrice !== undefined && req.query.minPrice !== "") {

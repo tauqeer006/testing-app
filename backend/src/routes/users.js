@@ -1,5 +1,5 @@
 const express = require("express");
-const { getReadConnection, getWriteConnection } = require("../db");
+const { getPrimaryReadConnection, getWriteConnection } = require("../db");
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ async function setServedByHeader(connection, res) {
 router.get("/users", async (req, res) => {
   let connection;
   try {
-    connection = await getReadConnection();
+    connection = await getPrimaryReadConnection();
     const result = await connection.execute(
       "SELECT id, name, email FROM users ORDER BY id ASC"
     );
@@ -86,7 +86,7 @@ router.get("/users/:id", async (req, res) => {
 
   let connection;
   try {
-    connection = await getReadConnection();
+    connection = await getPrimaryReadConnection();
     const result = await connection.execute(
       "SELECT id, name, email FROM users WHERE id = :id",
       { id: userId }
