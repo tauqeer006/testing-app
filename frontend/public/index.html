@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Oracle Database Failover Test Dashboard</title>
+  <title>Oracle Database Failover & Multi-Provider Rates Dashboard</title>
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,15 +17,22 @@
         <div class="logo-icon">⚡</div>
         <div>
           <h1>Failover Test Application</h1>
-          <p class="subtitle">Real-time Oracle Primary / Secondary Routing Monitor</p>
+          <p class="subtitle">Oracle Database Routing & Third-Party Exchange Rates Monitor</p>
         </div>
       </div>
       <div class="header-right">
-        <!-- Live Badge -->
+        <!-- Live DB Badge -->
         <div id="db-badge" class="badge badge-checking">
           <span class="badge-dot"></span>
           <span id="db-badge-text">Reads served by: CHECKING...</span>
         </div>
+
+        <!-- Third-Party Rates Provider Badge -->
+        <div id="rates-badge" class="badge badge-primary">
+          <span class="badge-dot"></span>
+          <span id="rates-badge-text">Rates from: frankfurter</span>
+        </div>
+
         <div class="refresh-indicator">
           <span>Auto-refresh: <strong id="refresh-counter">5s</strong></span>
           <button id="btn-manual-refresh" class="btn btn-secondary btn-sm" title="Refresh data immediately">↻ Refresh</button>
@@ -56,7 +63,7 @@
 
     <!-- Action Toolbar -->
     <section class="toolbar">
-      <div class="toolbar-title">Actions (Primary DB Writes):</div>
+      <div class="toolbar-title">Database Actions (Primary DB Writes):</div>
       <div class="toolbar-actions">
         <button id="btn-open-add-user" class="btn btn-primary">➕ Add User</button>
         <button id="btn-open-claim-order" class="btn btn-warning">🔒 Claim Order</button>
@@ -69,7 +76,7 @@
     <nav class="tabs-nav">
       <button class="tab-btn active" data-tab="users">Users</button>
       <button class="tab-btn" data-tab="orders">Orders</button>
-      <button class="tab-btn" data-tab="products">Products</button>
+      <button class="tab-btn" data-tab="products">Products & Rates</button>
       <button class="tab-btn" data-tab="stats">Stats</button>
     </nav>
 
@@ -122,24 +129,82 @@
         </div>
       </section>
 
-      <!-- Products Tab -->
+      <!-- Products & Rates Tab -->
       <section id="tab-products" class="tab-pane">
+        <!-- Live Currency Converter Widget -->
+        <div class="converter-box">
+          <div class="converter-header">
+            <h3>💱 Multi-Provider Currency Converter</h3>
+            <span class="converter-sub">Real-time calculations with client cross-rate logic & cache</span>
+          </div>
+          <form id="form-converter" class="converter-form">
+            <div class="converter-field">
+              <label for="convert-amount">Amount</label>
+              <input type="number" id="convert-amount" value="500" min="0.01" step="any" required>
+            </div>
+            <div class="converter-field">
+              <label for="convert-from">From</label>
+              <select id="convert-from">
+                <option value="USD" selected>USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="INR">INR (₹)</option>
+                <option value="PKR">PKR (Rs)</option>
+              </select>
+            </div>
+            <div class="converter-swap">➔</div>
+            <div class="converter-field">
+              <label for="convert-to">To</label>
+              <select id="convert-to">
+                <option value="EUR" selected>EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="JPY">JPY (¥)</option>
+                <option value="INR">INR (₹)</option>
+                <option value="PKR">PKR (Rs)</option>
+              </select>
+            </div>
+            <div class="converter-action">
+              <button type="submit" class="btn btn-primary" id="btn-convert">Convert</button>
+            </div>
+          </form>
+          <div id="converter-result-box" class="converter-result hidden">
+            <div id="converter-result-main" class="converter-result-main"></div>
+            <div id="converter-result-meta" class="converter-result-meta"></div>
+          </div>
+        </div>
+
+        <!-- Products List Header & Currency Selector -->
         <div class="panel-header">
-          <h2>Products Catalog</h2>
+          <h2>Products Catalog (DB Prices + Provider Rates)</h2>
           <div class="filter-group">
+            <label for="select-currency">Display Currency:</label>
+            <select id="select-currency" class="select-styled">
+              <option value="USD" selected>USD ($ - Base)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="JPY">JPY (¥)</option>
+              <option value="INR">INR (₹)</option>
+              <option value="PKR">PKR (Rs)</option>
+            </select>
             <label for="filter-min-price">Min Price ($):</label>
             <input type="number" id="filter-min-price" placeholder="e.g. 50" step="10" min="0">
             <button id="btn-filter-products" class="btn btn-secondary btn-sm">Filter</button>
             <button id="btn-reset-products" class="btn btn-text btn-sm">Reset</button>
           </div>
         </div>
+
+        <!-- Currency Unsupported Warning Note -->
+        <div id="currency-warning-note" class="info-note hidden"></div>
+
         <div class="table-responsive">
           <table class="data-table">
             <thead>
-              <tr>
+              <tr id="products-table-header">
                 <th style="width: 80px;">ID</th>
                 <th>Product Name</th>
-                <th style="text-align: right;">Price</th>
+                <th style="text-align: right;">Price (USD)</th>
               </tr>
             </thead>
             <tbody id="products-table-body">
@@ -287,7 +352,10 @@
     <!-- Footer -->
     <footer class="app-footer">
       <div>Backend API target: <code>backend:3000</code> | Nginx proxy: <code>:8080</code></div>
-      <div>Oracle Failover Agent Test Suite</div>
+      <div id="attribution-container" class="attribution-link hidden">
+        <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates by ExchangeRate-API</a>
+      </div>
+      <div>Oracle Failover & Exchange Rates Agent Test Suite</div>
     </footer>
   </div>
 

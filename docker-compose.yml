@@ -45,6 +45,17 @@ services:
     networks:
       - failover-net
 
+  mock-providers:
+    build:
+      context: ./mock-providers
+      dockerfile: Dockerfile
+    container_name: mock-providers
+    ports:
+      - "4000:4000"
+    mem_limit: 128m
+    networks:
+      - failover-net
+
   backend:
     build:
       context: ./backend
@@ -58,6 +69,14 @@ services:
       - APP_USER=${APP_USER:-APPUSER}
       - APP_USER_PASSWORD=${APP_USER_PASSWORD}
       - EXPECTED_READ_DB=${EXPECTED_READ_DB:-PRIMARY}
+      - FRANKFURTER_URL=${FRANKFURTER_URL:-https://api.frankfurter.dev/v1/latest?base={BASE}}
+      - OPEN_ER_API_URL=${OPEN_ER_API_URL:-https://open.er-api.com/v6/latest/{BASE}}
+      - CURRENCY_API_URL_PRIMARY=${CURRENCY_API_URL_PRIMARY:-https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/{base}.json}
+      - CURRENCY_API_URL_MIRROR=${CURRENCY_API_URL_MIRROR:-https://latest.currency-api.pages.dev/v1/currencies/{base}.json}
+      - USE_MOCK_PROVIDERS=${USE_MOCK_PROVIDERS:-false}
+      - SUPPORTED_CURRENCIES=${SUPPORTED_CURRENCIES:-USD,EUR,GBP,JPY,INR,PKR}
+      - RATES_CACHE_TTL_SECONDS=${RATES_CACHE_TTL_SECONDS:-600}
+      - RATES_STALE_MAX_SECONDS=${RATES_STALE_MAX_SECONDS:-3600}
     depends_on:
       oracle-primary:
         condition: service_healthy

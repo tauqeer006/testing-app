@@ -1,5 +1,6 @@
 const express = require("express");
 const { getReadConnection, getWriteConnection } = require("../db");
+const { probeAll, getProviderMetadata } = require("../providers");
 
 const router = express.Router();
 
@@ -69,6 +70,23 @@ router.get("/db", async (req, res) => {
   }
 
   res.status(200).json(result);
+});
+
+// GET /debug/provider - Probes all external rate providers in parallel
+router.get("/provider", async (req, res) => {
+  try {
+    const meta = getProviderMetadata();
+    const probes = await probeAll();
+    res.json({
+      primary: meta.primary,
+      order: meta.order,
+      probes,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message || "Failed to probe providers",
+    });
+  }
 });
 
 module.exports = router;

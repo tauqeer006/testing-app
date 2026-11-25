@@ -1,5 +1,6 @@
 const express = require("express");
 const { getSecondaryReadConnection } = require("../db");
+const { getRates } = require("../providers");
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ async function setServedByHeader(connection, res) {
   }
 }
 
-// GET /api/products?minPrice= - List products, optionally filtered by minPrice (READ pool)
+// GET /api/products?minPrice=&currency= - List products from DB with optional filtering and currency conversion
 router.get("/products", async (req, res) => {
   let connection;
   try {
@@ -48,7 +49,55 @@ router.get("/products", async (req, res) => {
     }
 
     await setServedByHeader(connection, res);
-    res.json(result.rows);
+    const rows = result.rows || [];
+
+    // If no currency parameter requested, return raw DB records unchanged
+    if (!req.query.currency) {
+      return res.json(rows);
+    }
+
+    const targetCurrency = String(req.query.currency).trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(targetCurrency)) {
+      return res.status(400).json({ error: "Invalid currency parameter. Must be a 3-letter currency code." });
+    }
+
+    // Currency conversion requested: query third-party rates
+    try {
+      const ratesData = await getRates("USD");
+      res.setHeader("X-Provider-Used", ratesData.provider);
+
+      const rate = ratesData.rates[targetCurrency];
+      if (rate === undefined) {
+        const withError = rows.map((row) => ({
+          ...row,
+          conversionError: `Currency '${targetCurrency}' is not supported by active provider '${ratesData.provider}'`,
+          provider: ratesData.provider,
+        }));
+        return res.json(withError);
+      }
+
+      const converted = rows.map((row) => {
+        const rawPrice = row.PRICE !== undefined ? row.PRICE : row.price;
+        const convertedPrice = Number((rawPrice * rate).toFixed(2));
+        return {
+          ...row,
+          convertedPrice,
+          currency: targetCurrency,
+          rate,
+          provider: ratesData.provider,
+          stale: Boolean(ratesData.stale),
+        };
+      });
+
+      return res.json(converted);
+    } catch (ratesErr) {
+      // If rates fail, return original prices plus a "conversionError" field, not a 500
+      const fallback = rows.map((row) => ({
+        ...row,
+        conversionError: ratesErr.message,
+      }));
+      return res.json(fallback);
+    }
   } catch (err) {
     res.status(500).json({
       error: err.message || "Failed to retrieve products",

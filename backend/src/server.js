@@ -9,6 +9,7 @@ const statsRouter = require("./routes/stats");
 const auditRouter = require("./routes/audit");
 const healthRouter = require("./routes/health");
 const debugRouter = require("./routes/debug");
+const ratesRouter = require("./routes/rates");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,11 +29,11 @@ process.on("uncaughtException", (err) => {
 });
 
 // Routes
-// Utility: Health check (does not touch database)
+// Utility: Health check (does not touch database or any provider)
 app.use("/", healthRouter);
 app.use("/api", healthRouter);
 
-// Utility: Database debug check
+// Utility: Database & Provider debug checks
 app.use("/debug", debugRouter);
 
 // Core API endpoints
@@ -41,6 +42,7 @@ app.use("/api", ordersRouter);
 app.use("/api", productsRouter);
 app.use("/api", statsRouter);
 app.use("/api", auditRouter);
+app.use("/api", ratesRouter);
 
 // 404 handler for unmapped endpoints
 app.use((req, res) => {

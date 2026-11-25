@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: Oracle Failover Test Application API
-  description: Backend API designed for automated database-failover agent testing. Each endpoint is tagged with `x-db-access` to declare its database routing contract.
-  version: 1.0.0
+  description: Backend API designed for automated database-failover agent testing. Each endpoint is tagged with `x-db-access` to declare its database routing contract and `x-external` when third-party provider APIs are invoked.
+  version: 1.1.0
 
 servers:
   - url: http://localhost:3000
@@ -14,8 +14,9 @@ paths:
   /health:
     get:
       summary: Health check endpoint
-      description: Returns service availability. Does not touch either database.
+      description: Returns service availability. Does not touch either database or any third-party provider.
       x-db-access: none
+      x-external: false
       responses:
         "200":
           description: Service is healthy
@@ -33,6 +34,7 @@ paths:
       summary: Database diagnostic health and identity probe
       description: Tests both read and write pools independently and reports active database identity or ORA error details.
       x-db-access: read
+      x-external: false
       responses:
         "200":
           description: Diagnostic information for read and write database pools
@@ -64,11 +66,171 @@ paths:
                         type: string
                         example: ORA-12541
 
+  /debug/provider:
+    get:
+      summary: External rate provider diagnostic probe
+      description: Probes every external rate provider in parallel and returns latency, health status, and active primary provider.
+      x-db-access: none
+      x-external: true
+      responses:
+        "200":
+          description: Diagnostic probe results for each provider
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  primary:
+                    type: string
+                    example: frankfurter
+                  order:
+                    type: array
+                    items:
+                      type: string
+                    example: ["frankfurter", "open_er_api", "currency_api_cdn"]
+                  probes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        provider:
+                          type: string
+                        ok:
+                          type: boolean
+                        latencyMs:
+                          type: integer
+                        error:
+                          type: string
+                          nullable: true
+
+  /api/rates:
+    get:
+      summary: Get latest exchange rates
+      description: Retrieves exchange rates from the active primary provider with in-memory caching and stale serving fallback.
+      x-db-access: none
+      x-external: true
+      parameters:
+        - name: base
+          in: query
+          required: false
+          schema:
+            type: string
+            default: USD
+          example: USD
+      responses:
+        "200":
+          description: Exchange rates map and provider metadata
+          headers:
+            X-Provider-Used:
+              schema:
+                type: string
+                example: frankfurter
+              description: Identifier of the third-party rates provider utilized
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  base:
+                    type: string
+                    example: USD
+                  rates:
+                    type: object
+                    additionalProperties:
+                      type: number
+                    example: {"EUR": 0.912, "GBP": 0.763, "JPY": 159.07}
+                  provider:
+                    type: string
+                    example: frankfurter
+                  sourceDate:
+                    type: string
+                    example: "2026-11-24"
+                  fetchedAt:
+                    type: string
+                    example: "2026-11-25T12:00:00.000Z"
+                  stale:
+                    type: boolean
+                    example: false
+                  ageSeconds:
+                    type: integer
+                    example: 12
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "500":
+          $ref: "#/components/responses/ExternalProviderErrorResponse"
+
+  /api/convert:
+    get:
+      summary: Convert currency amount
+      description: Converts an amount between currencies using rates from the active provider. Cross-calculates rates when needed.
+      x-db-access: none
+      x-external: true
+      parameters:
+        - name: amount
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: 0.01
+            maximum: 1000000000
+          example: 500
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+          example: USD
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+          example: EUR
+      responses:
+        "200":
+          description: Conversion calculation result
+          headers:
+            X-Provider-Used:
+              schema:
+                type: string
+                example: frankfurter
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  amount:
+                    type: number
+                    example: 500
+                  from:
+                    type: string
+                    example: USD
+                  to:
+                    type: string
+                    example: EUR
+                  rate:
+                    type: number
+                    example: 0.91216
+                  result:
+                    type: number
+                    example: 456.08
+                  provider:
+                    type: string
+                    example: frankfurter
+                  stale:
+                    type: boolean
+                    example: false
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+        "500":
+          $ref: "#/components/responses/ExternalProviderErrorResponse"
+
   /api/users:
     get:
       summary: List all users
       description: Retrieves all users ordered by ID. Plain SELECT on the read pool.
       x-db-access: read
+      x-external: false
       responses:
         "200":
           description: Array of user records
@@ -91,6 +253,7 @@ paths:
       summary: Create new user
       description: Inserts a new user record using users_seq.NEXTVAL on the write pool.
       x-db-access: write
+      x-external: false
       requestBody:
         required: true
         content:
@@ -125,6 +288,7 @@ paths:
       summary: Get user by ID
       description: Retrieves a single user record by ID. Plain SELECT on the read pool.
       x-db-access: read
+      x-external: false
       parameters:
         - name: id
           in: path
@@ -154,6 +318,7 @@ paths:
       summary: Get next user sequence ID (TRAP endpoint)
       description: Retrieves users_seq.NEXTVAL from DUAL. Although accessed via HTTP GET, this mutates sequence state and MUST stay on the write pool.
       x-db-access: write
+      x-external: false
       responses:
         "200":
           description: Next sequence ID
@@ -173,6 +338,7 @@ paths:
       summary: List all orders
       description: Retrieves all orders joined with user details. Plain SELECT on the read pool.
       x-db-access: read
+      x-external: false
       responses:
         "200":
           description: Array of order records with customer details
@@ -195,6 +361,7 @@ paths:
       summary: Get order by ID
       description: Retrieves an order by ID joined with user details. Plain SELECT on the read pool.
       x-db-access: read
+      x-external: false
       parameters:
         - name: id
           in: path
@@ -224,6 +391,7 @@ paths:
       summary: Update order status
       description: Updates the status of an existing order on the write pool.
       x-db-access: write
+      x-external: false
       parameters:
         - name: id
           in: path
@@ -267,6 +435,7 @@ paths:
       summary: Claim an order (TRAP endpoint)
       description: Uses SELECT FOR UPDATE followed by UPDATE on the write pool. Must stay on the write pool.
       x-db-access: write
+      x-external: false
       parameters:
         - name: id
           in: path
@@ -297,8 +466,9 @@ paths:
   /api/products:
     get:
       summary: List products
-      description: Retrieves product catalog, optionally filtered by minimum price. Plain SELECT on read pool.
+      description: Retrieves product catalog from the read pool. If currency is specified, prices are converted using the active rates provider.
       x-db-access: read
+      x-external: true
       parameters:
         - name: minPrice
           in: query
@@ -307,14 +477,24 @@ paths:
             type: number
             format: float
           example: 50.0
+        - name: currency
+          in: query
+          required: false
+          schema:
+            type: string
+          example: EUR
       responses:
         "200":
-          description: Array of products
+          description: Array of products (with optional converted price and provider info)
           headers:
             X-DB-Served-By:
               schema:
                 type: string
                 example: PRIMARY
+            X-Provider-Used:
+              schema:
+                type: string
+                example: frankfurter
           content:
             application/json:
               schema:
@@ -331,6 +511,7 @@ paths:
       summary: Get aggregate statistics
       description: Retrieves total counts and revenue metrics. Plain SELECT on the read pool.
       x-db-access: read
+      x-external: false
       responses:
         "200":
           description: Summary statistical metrics
@@ -351,6 +532,7 @@ paths:
       summary: Write audit log entry (TRAP endpoint)
       description: Invokes the Oracle stored procedure add_audit_log on the write pool.
       x-db-access: write
+      x-external: false
       requestBody:
         required: true
         content:
@@ -431,6 +613,29 @@ components:
           type: number
           format: float
           example: 129.99
+        originalPrice:
+          type: number
+          format: float
+          example: 129.99
+        convertedPrice:
+          type: number
+          format: float
+          example: 118.57
+        currency:
+          type: string
+          example: EUR
+        rate:
+          type: number
+          example: 0.91216
+        provider:
+          type: string
+          example: frankfurter
+        stale:
+          type: boolean
+          example: false
+        conversionError:
+          type: string
+          example: "Currency 'PKR' is not supported by active provider 'frankfurter'"
 
     StatsSummary:
       type: object
@@ -463,6 +668,13 @@ components:
           type: string
           example: ORA-12170
 
+    ProviderError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "[frankfurter] Request timed out after 5000ms"
+
   responses:
     DbErrorResponse:
       description: Database error occurred (status 500 with ORA error code)
@@ -470,6 +682,13 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/DbError"
+
+    ExternalProviderErrorResponse:
+      description: Third-party rates provider error occurred
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProviderError"
 
     BadRequestResponse:
       description: Invalid client input
