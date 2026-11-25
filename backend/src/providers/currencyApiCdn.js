@@ -4,10 +4,9 @@ function getPrimaryUrl(base) {
   const lowerBase = base.toLowerCase();
   const upperBase = base.toUpperCase();
   const isMock = process.env.USE_MOCK_PROVIDERS === "true";
-  const defaultUrl = isMock
-    ? "http://mock-providers:4000/currency_api_cdn/v1/currencies/{base}.json"
-    : "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/{base}.json";
-  const template = process.env.CURRENCY_API_URL_PRIMARY || defaultUrl;
+  const template = isMock
+    ? (process.env.MOCK_CURRENCY_API_URL_PRIMARY || "http://mock-providers:4000/currency_api_cdn/v1/currencies/{base}.json")
+    : (process.env.CURRENCY_API_URL_PRIMARY || "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/{base}.json");
   return template.replace(/\{base\}/g, lowerBase).replace(/\{BASE\}/g, upperBase);
 }
 
@@ -15,10 +14,9 @@ function getMirrorUrl(base) {
   const lowerBase = base.toLowerCase();
   const upperBase = base.toUpperCase();
   const isMock = process.env.USE_MOCK_PROVIDERS === "true";
-  const defaultUrl = isMock
-    ? "http://mock-providers:4000/currency_api_pages/v1/currencies/{base}.json"
-    : "https://latest.currency-api.pages.dev/v1/currencies/{base}.json";
-  const template = process.env.CURRENCY_API_URL_MIRROR || defaultUrl;
+  const template = isMock
+    ? (process.env.MOCK_CURRENCY_API_URL_MIRROR || "http://mock-providers:4000/currency_api_pages/v1/currencies/{base}.json")
+    : (process.env.CURRENCY_API_URL_MIRROR || "https://latest.currency-api.pages.dev/v1/currencies/{base}.json");
   return template.replace(/\{base\}/g, lowerBase).replace(/\{BASE\}/g, upperBase);
 }
 

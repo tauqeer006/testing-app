@@ -4,10 +4,9 @@ function getUrl(base) {
   const upperBase = base.toUpperCase();
   const lowerBase = base.toLowerCase();
   const isMock = process.env.USE_MOCK_PROVIDERS === "true";
-  const defaultUrl = isMock
-    ? "http://mock-providers:4000/open_er_api/v6/latest/{BASE}"
-    : "https://open.er-api.com/v6/latest/{BASE}";
-  const template = process.env.OPEN_ER_API_URL || defaultUrl;
+  const template = isMock
+    ? (process.env.MOCK_OPEN_ER_API_URL || "http://mock-providers:4000/open_er_api/v6/latest/{BASE}")
+    : (process.env.OPEN_ER_API_URL || "https://open.er-api.com/v6/latest/{BASE}");
   return template.replace(/\{BASE\}/g, upperBase).replace(/\{base\}/g, lowerBase);
 }
 

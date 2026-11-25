@@ -4,10 +4,9 @@ function getUrl(base) {
   const upperBase = base.toUpperCase();
   const lowerBase = base.toLowerCase();
   const isMock = process.env.USE_MOCK_PROVIDERS === "true";
-  const defaultUrl = isMock
-    ? "http://mock-providers:4000/frankfurter/v1/latest?base={BASE}"
-    : "https://api.frankfurter.dev/v1/latest?base={BASE}";
-  const template = process.env.FRANKFURTER_URL || defaultUrl;
+  const template = isMock
+    ? (process.env.MOCK_FRANKFURTER_URL || "http://mock-providers:4000/frankfurter/v1/latest?base={BASE}")
+    : (process.env.FRANKFURTER_URL || "https://api.frankfurter.dev/v1/latest?base={BASE}");
   return template.replace(/\{BASE\}/g, upperBase).replace(/\{base\}/g, lowerBase);
 }
 

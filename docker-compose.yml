@@ -64,6 +64,8 @@ services:
     ports:
       - "3000:3000"
     mem_limit: 512m
+    volumes:
+      - ./backend/src:/app/src
     environment:
       - PORT=3000
       - APP_USER=${APP_USER:-APPUSER}
