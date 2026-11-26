@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Heavy Slow Test Page</title>
+  <!-- 4. Render blocking synchronous script in head -->
+  <script src="/js/blocking-heavy.js"></script>
+  <!-- 1 & 6. Uncompressed CSS without Cache-Control -->
+  <link rel="stylesheet" href="/css/heavy-style.css">
+  <script src="/rum-beacon.js" defer></script>
+</head>
+<body>
+  <h1>Heavy Test Page - Performance Baseline</h1>
+
+  <!-- Hero image above fold -->
+  <div style="height: 600px;">
+    <p>Above fold content</p>
+  </div>
+
+  <!-- Spacer to push next elements below 768px viewport -->
+  <div style="height: 400px; background: #eee;">
+    <p>Middle scroll section</p>
+  </div>
+
+  <!-- 2. Below the fold image missing loading="lazy" -->
+  <div style="margin-top: 100px;">
+    <img src="/images/banner-below-fold.png" alt="Footer Banner" width="800" height="400">
+  </div>
+
+  <!-- 3. Oversized image: rendered at 300px width, natural width is 1920px (>1.5x) and >200KB -->
+  <div style="margin-top: 50px;">
+    <img src="/images/giant-hero.png" alt="Giant Hero" width="300" height="150">
+  </div>
+
+  <!-- 5. Large JS Bundle (>250KB) -->
+  <script src="/js/big-vendor-bundle.js"></script>
+
+  <!-- 8. API call simulation script -->
+  <script>
+    fetch('/api/products').then(r => r.json());
+  </script>
+</body>
+</html>

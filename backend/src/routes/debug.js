@@ -89,4 +89,66 @@ router.get("/provider", async (req, res) => {
   }
 });
 
+// Rolling buffer for RUM beacons (max 1000 entries)
+const MAX_BEACONS = 1000;
+let rumBeacons = [];
+let beaconSequence = 0;
+
+// POST /debug/rum - Ingest beacon from client browsers
+router.post("/rum", express.json({ limit: "256kb", type: ["application/json", "text/plain"] }), (req, res) => {
+  try {
+    let payload = req.body;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch (parseErr) {
+        return res.status(400).json({ error: "Invalid beacon payload" });
+      }
+    }
+
+    if (!payload || typeof payload !== "object") {
+      return res.status(400).json({ error: "Invalid beacon payload" });
+    }
+
+    beaconSequence += 1;
+    const beacon = {
+      ...payload,
+      id: beaconSequence,
+      receivedAt: new Date().toISOString(),
+    };
+
+    rumBeacons.push(beacon);
+    if (rumBeacons.length > MAX_BEACONS) {
+      rumBeacons.shift();
+    }
+
+    return res.status(201).json({ status: "ok", id: beaconSequence });
+  } catch (err) {
+    return res.status(400).json({ error: "Invalid beacon payload" });
+  }
+});
+
+// GET /debug/rum?since=<cursor> - Polled by Rectification Agent
+router.get("/rum", (req, res) => {
+  const token = req.headers["x-debug-token"];
+  const expectedToken = process.env.RUM_DEBUG_TOKEN;
+
+  if (expectedToken && token !== expectedToken) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const since = parseInt(req.query.since || "0", 10);
+  const targetSince = isNaN(since) ? 0 : since;
+  const newBeacons = rumBeacons
+    .filter((b) => b.id > targetSince)
+    .sort((a, b) => a.id - b.id);
+  return res.status(200).json(newBeacons);
+});
+
+// Helper for automated testing to reset in-memory beacons
+router._resetBeaconsForTest = () => {
+  rumBeacons = [];
+  beaconSequence = 0;
+};
+
 module.exports = router;

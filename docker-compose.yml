@@ -66,6 +66,7 @@ services:
     mem_limit: 512m
     volumes:
       - ./backend/src:/app/src
+      - ./backend/tests:/app/tests
     environment:
       - PORT=3000
       - APP_USER=${APP_USER:-APPUSER}
@@ -79,6 +80,7 @@ services:
       - SUPPORTED_CURRENCIES=${SUPPORTED_CURRENCIES:-USD,EUR,GBP,JPY,INR,PKR}
       - RATES_CACHE_TTL_SECONDS=${RATES_CACHE_TTL_SECONDS:-600}
       - RATES_STALE_MAX_SECONDS=${RATES_STALE_MAX_SECONDS:-3600}
+      - RUM_DEBUG_TOKEN=${RUM_DEBUG_TOKEN:-}
     depends_on:
       oracle-primary:
         condition: service_healthy
@@ -96,6 +98,8 @@ services:
     container_name: failover-frontend
     ports:
       - "8080:80"
+    volumes:
+      - ./frontend/public:/usr/share/nginx/html:ro
     depends_on:
       - backend
     networks:

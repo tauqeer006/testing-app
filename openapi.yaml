@@ -103,6 +103,98 @@ paths:
                           type: string
                           nullable: true
 
+  /debug/rum:
+    post:
+      summary: Ingest client-side Real User Monitoring (RUM) performance beacon
+      description: Ingests client timing and resource metrics into a rolling in-memory buffer.
+      x-db-access: none
+      x-external: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                path:
+                  type: string
+                  example: /
+                ttfbMs:
+                  type: integer
+                  example: 45
+                domContentLoadedMs:
+                  type: integer
+                  example: 180
+                loadMs:
+                  type: integer
+                  example: 320
+                fcpMs:
+                  type: integer
+                  example: 120
+                lcpMs:
+                  type: integer
+                  example: 250
+      responses:
+        "201":
+          description: Beacon ingested successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  id:
+                    type: integer
+                    example: 1
+        "400":
+          $ref: "#/components/responses/BadRequestResponse"
+    get:
+      summary: Poll buffered Real User Monitoring (RUM) beacons
+      description: Returns buffered performance beacons with id > since, protected by X-Debug-Token.
+      x-db-access: none
+      x-external: false
+      parameters:
+        - name: X-Debug-Token
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Debug authentication token matching RUM_DEBUG_TOKEN env
+        - name: since
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Return beacons with id greater than this sequence cursor
+      responses:
+        "200":
+          description: List of new beacons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    receivedAt:
+                      type: string
+                      format: date-time
+        "401":
+          description: Unauthorized if X-Debug-Token does not match RUM_DEBUG_TOKEN
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Unauthorized
+
   /api/rates:
     get:
       summary: Get latest exchange rates

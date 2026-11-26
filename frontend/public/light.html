@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Light Fast Test Page</title>
+  <!-- Modern deferred / module scripts, non-blocking -->
+  <script src="/js/modern-app.js" defer></script>
+  <link rel="stylesheet" href="/css/compact.css">
+  <script src="/rum-beacon.js" defer></script>
+</head>
+<body>
+  <h1>Light Fast Page</h1>
+
+  <!-- Appropriately sized hero image above the fold -->
+  <div>
+    <img src="/images/optimized-hero.webp" alt="Hero" width="600" height="300" style="width: 600px; height: 300px;">
+  </div>
+
+  <div style="height: 1000px;">
+    <p>Scrollable body</p>
+  </div>
+
+  <!-- Off-screen image with loading="lazy" -->
+  <div>
+    <img src="/images/footer-ad.webp" alt="Footer" loading="lazy" width="400" height="200" style="width: 400px; height: 200px;">
+  </div>
+</body>
+</html>
