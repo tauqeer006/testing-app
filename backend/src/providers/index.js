@@ -5,7 +5,7 @@ const cache = require("./cache");
 
 // An agent will edit this file by exact string replacement, so use EXACTLY these top-level constants:
 const PROVIDER_ORDER = ["frankfurter", "open_er_api", "currency_api_cdn"];
-const PRIMARY_PROVIDER = "open_er_api";
+const PRIMARY_PROVIDER = "frankfurter";
 
 const ADAPTERS = {
   frankfurter,
