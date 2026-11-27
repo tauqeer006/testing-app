@@ -49,7 +49,7 @@ async function getReadPool() {
         password,
         connectString: READ_POOL_CONNECT_STRING,
         poolMin: 0,
-        poolMax: 10,
+        poolMax: 15,
         poolIncrement: 1,
         connectTimeout: 3,
         queueTimeout: 5000,
