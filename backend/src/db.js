@@ -5,7 +5,7 @@ const PRIMARY_CONNECT_STRING = "oracle-primary:1521/FREEPDB1";
 const SECONDARY_CONNECT_STRING = "oracle-secondary:1521/FREEPDB1";
 const WRITE_POOL_CONNECT_STRING = PRIMARY_CONNECT_STRING;
 const READ_POOL_CONNECT_STRING = SECONDARY_CONNECT_STRING;
-const PRIMARY_READ_POOL_CONNECT_STRING = PRIMARY_CONNECT_STRING;
+const PRIMARY_READ_POOL_CONNECT_STRING = SECONDARY_CONNECT_STRING;
 const SECONDARY_READ_POOL_CONNECT_STRING = SECONDARY_CONNECT_STRING;
 
 // Only user/password come from env
@@ -49,7 +49,7 @@ async function getReadPool() {
         password,
         connectString: READ_POOL_CONNECT_STRING,
         poolMin: 0,
-        poolMax: 10,
+        poolMax: 15,
         poolIncrement: 1,
         connectTimeout: 3,
         queueTimeout: 5000,
